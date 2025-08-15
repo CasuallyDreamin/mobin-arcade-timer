@@ -60,6 +60,3 @@ You can package the app into a standalone `.exe` using **PyInstaller**.
 
 ---
 
-## Screenshots (Optional)
-
-Add screenshots of the **Active Timers** view and **History Log** here to make the README visually appealing.
