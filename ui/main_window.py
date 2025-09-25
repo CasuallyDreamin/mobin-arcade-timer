@@ -2,16 +2,53 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox,
     QScrollArea, QSizePolicy
 )
+from PyQt6.QtGui import QPixmap, QPainter, QIcon
 from PyQt6.QtCore import QTimer, Qt
 from core.timer_manager import TimerManager
 from core.logger import Logger
 from ui.history_window import HistoryWindow
 
 
+# --- Transparent overlay class ---
+class TransparentOverlay(QLabel):
+    def __init__(self, parent, image_path, opacity=0.2):
+        super().__init__(parent)
+        self.image_path = image_path
+        self.opacity = opacity
+
+        # Let mouse/keyboard events pass through
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+
+        self.update_overlay()
+        self.show()
+
+    def update_overlay(self):
+        parent_size = self.parent().size()
+        pixmap = QPixmap(self.image_path).scaled(
+            parent_size,
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            Qt.TransformationMode.SmoothTransformation
+        )
+
+        # Apply opacity
+        overlay = QPixmap(pixmap.size())
+        overlay.fill(Qt.GlobalColor.transparent)
+
+        painter = QPainter(overlay)
+        painter.setOpacity(self.opacity)
+        painter.drawPixmap(0, 0, pixmap)
+        painter.end()
+
+        self.setPixmap(overlay)
+        self.setGeometry(self.parent().rect())
+
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Arcade Timer")
+        self.setWindowTitle("TOOSKA")
+        self.setWindowIcon(QIcon("arcade_icon.png"))
         self.setGeometry(100, 100, 600, 500)
 
         self.timer_manager = TimerManager()
@@ -54,11 +91,20 @@ class MainWindow(QWidget):
         self.init_top_frame()
         self.init_timer_area()
 
+        # Overlay background image (arcade photo)
+        self.overlay = TransparentOverlay(self, "arcade.png", opacity=0.15)
+
         # Live timer update
         self.update_timer = QTimer()
         self.update_timer.setInterval(1000)  # 1 second
         self.update_timer.timeout.connect(self.update_timer_labels)
         self.update_timer.start()
+
+    # --- Resize event keeps overlay in sync ---
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "overlay"):
+            self.overlay.update_overlay()
 
     # --- Top input and buttons ---
     def init_top_frame(self):
@@ -240,7 +286,6 @@ class MainWindow(QWidget):
             self.scroll_layout.addWidget(row_widget)
 
     # --- Update elapsed timers ---
-        # --- Update elapsed timers ---
     def update_timer_labels(self):
         from datetime import datetime
         for name, start in self.timer_manager.get_active_timers().items():
@@ -249,4 +294,3 @@ class MainWindow(QWidget):
             minutes = remainder // 60
             if name in self.timer_labels:
                 self.timer_labels[name].setText(f"{hours:02d}:{minutes:02d}")
-
